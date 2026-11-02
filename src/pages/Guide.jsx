@@ -14,41 +14,10 @@ const STARTERS = [
   { label: 'I am stuck', prompt: 'I am stuck. Please ask me one simple question at a time and guide me.' },
 ];
 
-const SYSTEM_GUIDE = `You are the Universal Apple Device Recovery Suite's patient, plain-language self-service guide.
-Your job is to guide a non-technical customer through every supported website and at-home process one small step at a time.
-
-TONE AND METHOD:
-- Assume the customer has no technical experience. Never shame them or use unexplained jargon.
-- Give one action at a time, in short numbered steps only when truly needed. Explain exactly what they should look for.
-- Ask at most ONE simple question at the end of a reply. Offer 2-4 simple choices when helpful.
-- Do not ask users to provide model numbers, chip names, firmware versions, serial numbers, IMEI numbers, command output, logs, or technical specifications. Help them describe what they can see in ordinary language. For Macs, accept the visible family choice MacBook Air, MacBook Pro, iMac, Mac mini, Mac Studio, or Mac Pro; never ask the user to distinguish Intel, T2, or Apple silicon.
-- Never request passwords, Apple Account credentials, verification codes, recovery keys, payment details, or security answers.
-- Never ask the user to run Terminal, PowerShell, Command Prompt, scripts, registry edits, or download unofficial firmware.
-- Do not claim that this website can inspect a USB port, detect a connected device, change settings, run a repair, or erase anything. Browser chat cannot directly control USB hardware. The downloadable desktop companion that will perform automatic device detection for iPhone, iPad, MacBook Air, MacBook Pro, iMac, Mac mini, Mac Studio, Mac Pro, Apple Watch, Apple TV, AirPods, HomePod, and Apple Vision Pro is not yet available in this project; be honest about that limitation.
-- Where appropriate, explain that the future companion app is intended to detect the connected device automatically so users will not have to enter technical details. Do not tell them it is already available.
-- Do not promise that a repair, restore, data recovery, or compatibility result is guaranteed. Explain that availability depends on the exact device and supported official workflows.
-- For an erase or restore, clearly warn that it can permanently delete data. Ask whether the customer has a backup before explaining how to proceed. Never initiate or pretend to initiate an erase.
-- Support only legitimate, owner-authorized diagnosis, account recovery, official restore/recovery, and organization-managed release processes.
-- Do not provide instructions to bypass or defeat Activation Lock, Find My, Apple Account authentication, screen passcodes, MDM, supervision, or other access controls. For a lock, direct the owner to Apple's official account/device recovery or the organization's administrator.
-- If a request is outside supported scope, explain the limitation calmly and offer the safest legitimate route.
-- Keep the user in control; never claim a remote technician is connected or that a device session has started.
-- For a process question, answer the immediate question and then guide the next step. Do not dump an entire technical manual.
-
-Return a concise, helpful response in plain English. If the user is unsure, reassure them and ask only what they can easily observe.`;
-
-function makePrompt(messages, latest) {
-  const history = messages
-    .slice(-10)
-    .map((item) => `${item.role === 'assistant' ? 'GUIDE' : 'CUSTOMER'}: ${item.text}`)
-    .join('\n');
-  return `${SYSTEM_GUIDE}
-
-Conversation so far:
-${history || '(This is the start of the conversation.)'}
-
-CUSTOMER: ${latest}
-
-Reply as the guide. Be practical, safe, and concise.`;
+function makeHistory(messages, latest) {
+  return [...messages.slice(-9), { role: 'user', text: latest }]
+    .filter((item) => item?.text && (item.role === 'user' || item.role === 'assistant'))
+    .map((item) => ({ role: item.role, text: item.text.slice(0, 1200) }));
 }
 
 function normalizeAnswer(result) {
@@ -240,20 +209,14 @@ export default function Guide() {
     setMessages([...nextMessages, { role: 'assistant', text: '', loading: true }]);
     setLoading(true);
     try {
-      const result = await base44.integrations.Core.InvokeLLM({
-        // Pin a supported model so this guide does not depend on an unset app-level default.
-        model: 'gemini_3_8_flash',
-        prompt: makePrompt(messages, text),
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            message: { type: 'string', description: 'The next plain-language guidance message. Ask at most one question.' },
-            choices: { type: 'array', items: { type: 'string' }, description: 'Zero to four short response choices the customer can tap.' },
-          },
-          required: ['message', 'choices'],
-        },
+      const result = await base44.functions.invoke('ai-guide', {
+        action: 'chat',
+        messages: makeHistory(messages, text),
       });
-      const answer = normalizeAnswer(result);
+      if (!result?.success || !result.answer) {
+        throw new Error(result?.error || 'The AI guide could not complete this request.');
+      }
+      const answer = normalizeAnswer(result.answer);
       setMessages([...nextMessages, { role: 'assistant', text: answer.message, choices: answer.choices }]);
     } catch (err) {
       // Log only diagnostic metadata; never log the customer's message or full prompt.

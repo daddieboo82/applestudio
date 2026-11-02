@@ -24,18 +24,24 @@ export default function Admin() {
     setAiChecking(true);
     const startedAt = Date.now();
     try {
-      const response = await base44.integrations.Core.InvokeLLM({
-        model: 'gemini_3_8_flash',
-        prompt: 'This is a short service health check for the Universal Apple Device Recovery Suite. Reply with exactly this word and nothing else: READY',
-      });
+      const response = await base44.functions.invoke('ai-guide', { action: 'health' });
       const latency = Date.now() - startedAt;
-      const reply = typeof response === 'string' ? response.trim() : String(response?.message || response?.answer || '').trim();
-      if (reply.toUpperCase() !== 'READY') {
-        throw new Error('The AI service returned an unexpected health-check response.');
+      if (!response?.success || String(response?.reply || '').trim().toUpperCase() !== 'READY') {
+        const diagnostic = response?.diagnostic;
+        const detail = diagnostic
+          ? [diagnostic.status ? `HTTP ${diagnostic.status}` : null, diagnostic.code, diagnostic.message].filter(Boolean).join(' · ')
+          : response?.error || 'The server-side AI health check did not return READY.';
+        setAiCheck({
+          status: 'offline',
+          message: detail,
+          checkedAt: new Date().toISOString(),
+          latency,
+        });
+        return;
       }
       setAiCheck({
         status: 'online',
-        message: 'The configured AI model returned the expected READY response. The customer Recovery Guide can reach the model.',
+        message: 'The server-side AI connection returned READY. The customer Recovery Guide uses this same protected connection.',
         checkedAt: new Date().toISOString(),
         latency,
       });
@@ -179,6 +185,17 @@ export default function Admin() {
         </div>
       </div>
 
+      <section className="mt-8 rounded-xl border border-primary/25 bg-primary/[0.03] p-5 sm:p-6" aria-labelledby="ai-provider-heading">
+        <h2 id="ai-provider-heading" className="font-heading text-lg font-medium">AI provider connection</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+          The Recovery Guide now supports a direct Google Gemini API connection, so it does not use Base44's monthly AI integration allowance. Create your own API key, then save it as the secure app secret named <strong>GEMINI_API_KEY</strong>. Do not paste the key into this page or into chat.
+        </p>
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full border border-primary/40 bg-primary/10 px-4 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-primary transition-colors hover:bg-primary/15">
+          Create Gemini API key
+        </a>
+        <p className="mt-3 text-xs text-muted-foreground">Google may apply its own usage limits or charges. The key stays on the server and is never sent to the customer's browser.</p>
+      </section>
+
       <section className="mt-8 rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="ai-health-heading">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-2xl">
@@ -199,7 +216,7 @@ export default function Admin() {
           </button>
         </div>
         <p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
-          This on-demand check sends a short test prompt to the same Base44 AI model used by the customer guide. It does not include customer conversations or device information. A successful test confirms model connectivity at that moment, not uninterrupted future availability.
+          This on-demand check uses the same protected server-side AI route as the customer guide. It sends only a short READY test prompt, not customer conversations or device information. A successful test confirms model connectivity at that moment, not uninterrupted future availability.
         </p>
       </section>
 
