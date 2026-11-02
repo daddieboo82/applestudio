@@ -98,17 +98,30 @@ async function callGemini(apiKey: string, input: string, health = false, model =
     throw error;
   }
 
-  const outputText = String(
-    data?.output_text ||
-    data?.steps?.filter((step: any) => step?.type === "model_output")
-      ?.flatMap((step: any) => step?.content || [])
-      ?.filter((part: any) => part?.type === "text")
-      ?.map((part: any) => part.text)
-      ?.join("") ||
-    ""
-  ).trim();
+  const textParts = (Array.isArray(data?.steps) ? data.steps : [])
+    .filter((step: any) => step && (step.type === "model_output" || step.type === "text"))
+    .flatMap((step: any) => Array.isArray(step.content) ? step.content : [])
+    .filter((part: any) => part && (part.type === "text" || typeof part.text === "string"))
+    .map((part: any) => typeof part.text === "string" ? part.text : "")
+    .filter(Boolean);
+  const outputText = String(data?.output_text || textParts.join("") || "").trim();
 
-  if (!outputText) throw new Error("Gemini returned an empty response.");
+  if (!outputText) {
+    const stepTypes = Array.isArray(data?.steps) ? data.steps.map((step: any) => String(step?.type || "unknown")).slice(0, 8) : [];
+    const diagnostic = {
+      status: String(data?.status || "unknown"),
+      interactionIdPresent: Boolean(data?.id),
+      stepCount: Array.isArray(data?.steps) ? data.steps.length : 0,
+      stepTypes,
+      usageOutputTokens: Number(data?.usage?.total_output_tokens || 0),
+      model: String(data?.model || model)
+    };
+    console.error("Gemini returned no text output", diagnostic);
+    const error = new Error(`Gemini returned no text output (interaction status: ${diagnostic.status}; steps: ${diagnostic.stepCount}; output tokens: ${diagnostic.usageOutputTokens}).`);
+    (error as any).status = 502;
+    (error as any).code = "GEMINI_EMPTY_OUTPUT";
+    throw error;
+  }
   return outputText;
 }
 
@@ -122,8 +135,10 @@ async function callGeminiWithFallback(apiKey: string, input: string, health = fa
     } catch (error) {
       lastError = error;
       const status = Number((error as any)?.status || 0);
-      if (status !== 429 && status !== 503) throw error;
-      console.warn("Gemini model temporarily unavailable; trying fallback", { model, status });
+      const code = String((error as any)?.code || "");
+      const retryable = status === 429 || status === 502 || status === 503 || status === 504 || code === "GEMINI_EMPTY_OUTPUT";
+      if (!retryable) throw error;
+      console.warn("Gemini model unavailable or returned no usable output; trying fallback", { model, status, code });
     }
   }
   throw lastError || new Error("All configured Gemini models are unavailable.");
