@@ -68,6 +68,7 @@ function safeDiagnostic(error: unknown) {
 async function callGemini(apiKey: string, input: string, health = false) {
   const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
+    signal: AbortSignal.timeout(25_000),
     headers: {
       "Content-Type": "application/json",
       "x-goog-api-key": apiKey
@@ -76,6 +77,7 @@ async function callGemini(apiKey: string, input: string, health = false) {
       model: MODEL,
       input,
       store: false,
+      generation_config: { thinking_level: "low", max_output_tokens: health ? 32 : 1200 },
       ...(health ? {} : {
         system_instruction: SYSTEM_GUIDE,
         response_format: {
@@ -147,7 +149,8 @@ Deno.serve(async (req) => {
 
     if (action === "health") {
       const reply = await callGemini(apiKey, "Reply with exactly this word and nothing else: READY", true);
-      return Response.json({ success: reply.toUpperCase() === "READY", reply, model: MODEL, provider: "Google Gemini API" });
+      const normalized = reply.replace(/[^A-Z]/gi, "").toUpperCase();
+      return Response.json({ success: normalized === "READY", reply, model: MODEL, provider: "Google Gemini API" });
     }
 
     const messages = Array.isArray(body?.messages) ? body.messages.slice(-10) : [];
@@ -175,7 +178,9 @@ Deno.serve(async (req) => {
       }
     });
   } catch (error) {
-    const diagnostic = safeDiagnostic(error);
+    const diagnostic = error instanceof DOMException && error.name === "TimeoutError"
+      ? { status: 504, code: "GEMINI_REQUEST_TIMEOUT", message: "Gemini did not respond within 25 seconds. Check the Google AI Studio project, API access, and quota." }
+      : safeDiagnostic(error);
     console.error("Recovery Guide Gemini API request failed", diagnostic);
     if (action === "health") {
       return Response.json({ success: false, diagnostic });
