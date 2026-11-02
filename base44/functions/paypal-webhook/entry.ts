@@ -62,6 +62,7 @@ Deno.serve(async (req: Request) => {
       const order = await orderResponse.json();
       const capture = order.purchase_units?.[0]?.payments?.captures?.find((item: { id: string }) => item.id === resource.id);
       if (order.status !== "COMPLETED" || capture?.status !== "COMPLETED") return out({ error: "PayPal order or capture is not completed." }, 409);
+      if (order.purchase_units?.[0]?.custom_id !== payment.service_request_id) return out({ error: "PayPal order is linked to a different service request." }, 409);
       if (capture.amount?.currency_code !== payment.currency || Number(capture.amount?.value).toFixed(2) !== Number(payment.amount).toFixed(2)) {
         return out({ error: "Capture amount does not match the recorded transaction." }, 409);
       }

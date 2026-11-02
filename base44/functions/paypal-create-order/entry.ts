@@ -9,6 +9,42 @@ async function getToken() {
   if (!r.ok) throw new Error("PayPal authentication failed.");
   return (await r.json()).access_token as string;
 }
+
+const SERVICE_PRICES: Record<string, { base: number; benchmark: number }> = {
+  system_repair: { base: 39, benchmark: 69 },
+  data_recovery: { base: 79, benchmark: 129 },
+  diagnostics: { base: 19, benchmark: 39 },
+  refurb_audit: { base: 12, benchmark: 25 },
+};
+const DEVICE_MULTIPLIERS: Record<string, number> = {
+  iphone: 1.15, ipad: 1.0, "macbook-air": 1.45, "macbook-pro": 1.65,
+  imac: 1.45, "mac-mini": 1.35, "mac-studio": 1.85, "mac-pro": 2.1,
+  watch: 0.8, "apple-tv": 0.9, airpods: 0.7, homepod: 0.7, "vision-pro": 1.9,
+};
+function retail(value: number) { return Math.max(10, Math.round(value)) - 1 + 0.99; }
+async function calculateServerQuote(base44: ReturnType<typeof createClientFromRequest>, request: Record<string, unknown>) {
+  const service = SERVICE_PRICES[String(request.service)];
+  const multiplier = DEVICE_MULTIPLIERS[String(request.device_class)];
+  const quantity = Number(request.device_count);
+  if (!service || !multiplier || !Number.isInteger(quantity) || quantity < 1 || quantity > 500) {
+    throw new Error("The service, device type, or quantity is invalid.");
+  }
+  const configs = await base44.asServiceRole.entities.PricingConfig.filter({ key: "global" });
+  const config = configs?.[0];
+  const marginFloor = Number(config?.margin_floor);
+  const undercut = Number(config?.undercut_pct);
+  const margin = Number.isFinite(marginFloor) && marginFloor >= 1 && marginFloor <= 5 ? marginFloor : 1.22;
+  const undercutPct = Number.isFinite(undercut) && undercut >= 0 && undercut <= 50 ? undercut : 12;
+  const cost = service.base * multiplier;
+  const floor = cost * margin;
+  const benchmark = service.benchmark * multiplier;
+  const list = Math.max(retail(benchmark * (1 - undercutPct / 100)), retail(floor));
+  const tiers = [{ max: 1, discount: 0 }, { max: 4, discount: 0.1 }, { max: 9, discount: 0.18 }, { max: 24, discount: 0.26 }, { max: 500, discount: 0.34 }];
+  const tier = tiers.find((item) => quantity <= item.max) || tiers[0];
+  const rawUnit = list * (1 - tier.discount);
+  const unitPrice = rawUnit >= floor ? retail(rawUnit) : retail(list);
+  return { unitPrice, total: Number((unitPrice * quantity).toFixed(2)) };
+}
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return out({ error: "Method not allowed." }, 405);
   try {
@@ -23,8 +59,13 @@ Deno.serve(async (req: Request) => {
     const request = await requests.get(id);
     if (!request || request.created_by_id !== user.id) return out({ error: "Service request not found." }, 404);
     if (request.status === "declined" || request.status === "completed" || request.payment_status === "paid") return out({ error: "This request is not payable." }, 409);
-    const amount = Number(request.quoted_total);
-    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000) return out({ error: "The saved estimate has an invalid amount." }, 400);
+    if (request.ownership_confirmed !== true) return out({ error: "Device ownership confirmation is required." }, 403);
+    const quote = await calculateServerQuote(b, request as Record<string, unknown>);
+    const amount = quote.total;
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000) return out({ error: "The calculated estimate is invalid." }, 400);
+    if (Number(request.quoted_total).toFixed(2) !== amount.toFixed(2)) {
+      await requests.update(request.id, { quoted_unit_price: quote.unitPrice, quoted_total: amount });
+    }
     const access = await getToken();
     const response = await fetch(API + "/v2/checkout/orders", {
       method: "POST",
