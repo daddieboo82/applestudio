@@ -1,6 +1,7 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
 
 const MODEL = "gemini-3.8-flash";
+const FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-3.6-flash"];
 const RATE_LIMIT = 20;
 const WINDOW_MS = 60_000;
 const requestsByIp = new Map<string, number[]>();
@@ -65,7 +66,7 @@ function safeDiagnostic(error: unknown) {
   return { status, code, message };
 }
 
-async function callGemini(apiKey: string, input: string, health = false) {
+async function callGemini(apiKey: string, input: string, health = false, model = MODEL) {
   const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
     signal: AbortSignal.timeout(25_000),
@@ -74,7 +75,7 @@ async function callGemini(apiKey: string, input: string, health = false) {
       "x-goog-api-key": apiKey
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
       input,
       store: false,
       generation_config: { thinking_level: "low", max_output_tokens: health ? 32 : 1200 },
@@ -109,6 +110,23 @@ async function callGemini(apiKey: string, input: string, health = false) {
 
   if (!outputText) throw new Error("Gemini returned an empty response.");
   return outputText;
+}
+
+async function callGeminiWithFallback(apiKey: string, input: string, health = false) {
+  const models = [MODEL, ...FALLBACK_MODELS];
+  let lastError: unknown;
+  for (const model of models) {
+    try {
+      const reply = await callGemini(apiKey, input, health, model);
+      return { reply, model };
+    } catch (error) {
+      lastError = error;
+      const status = Number((error as any)?.status || 0);
+      if (status !== 429 && status !== 503) throw error;
+      console.warn("Gemini model temporarily unavailable; trying fallback", { model, status });
+    }
+  }
+  throw lastError || new Error("All configured Gemini models are unavailable.");
 }
 
 Deno.serve(async (req) => {
@@ -148,9 +166,9 @@ Deno.serve(async (req) => {
     }
 
     if (action === "health") {
-      const reply = await callGemini(apiKey, "Reply with exactly this word and nothing else: READY", true);
-      const normalized = reply.replace(/[^A-Z]/gi, "").toUpperCase();
-      return Response.json({ success: normalized === "READY", reply, model: MODEL, provider: "Google Gemini API" });
+      const result = await callGeminiWithFallback(apiKey, "Reply with exactly this word and nothing else: READY", true);
+      const normalized = result.reply.replace(/[^A-Z]/gi, "").toUpperCase();
+      return Response.json({ success: normalized === "READY", reply: result.reply, model: result.model, provider: "Google Gemini API" });
     }
 
     const messages = Array.isArray(body?.messages) ? body.messages.slice(-10) : [];
@@ -163,7 +181,8 @@ Deno.serve(async (req) => {
     }
 
     const prompt = `Conversation so far:\n${history}\n\nReply as the guide. Be practical, safe, and concise.`;
-    const outputText = await callGemini(apiKey, prompt);
+    const result = await callGeminiWithFallback(apiKey, prompt);
+    const outputText = result.reply;
     let answer;
     try {
       answer = JSON.parse(outputText);
@@ -172,6 +191,7 @@ Deno.serve(async (req) => {
     }
     return Response.json({
       success: true,
+      model: result.model,
       answer: {
         message: String(answer?.message || answer?.answer || "I can help with the next step. Tell me what you see."),
         choices: Array.isArray(answer?.choices) ? answer.choices.filter((value: unknown) => typeof value === "string").slice(0, 4) : []
