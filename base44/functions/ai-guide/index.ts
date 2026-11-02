@@ -78,7 +78,7 @@ async function callGemini(apiKey: string, input: string, health = false, model =
       model,
       input,
       store: false,
-      generation_config: { thinking_level: "low", max_output_tokens: health ? 32 : 1200 },
+      generation_config: { thinking_level: "low", max_output_tokens: health ? 256 : 1600 },
       ...(health ? {} : {
         system_instruction: SYSTEM_GUIDE,
         response_format: {
@@ -98,13 +98,17 @@ async function callGemini(apiKey: string, input: string, health = false, model =
     throw error;
   }
 
-  const textParts = (Array.isArray(data?.steps) ? data.steps : [])
-    .filter((step: any) => step && (step.type === "model_output" || step.type === "text"))
-    .flatMap((step: any) => Array.isArray(step.content) ? step.content : [])
+  const stepParts = (Array.isArray(data?.steps) ? data.steps : [])
+    .filter((step: any) => step && (step.type === "model_output" || step.type === "text" || step.type === "output_text"))
+    .flatMap((step: any) => Array.isArray(step.content) ? step.content : (typeof step.text === "string" ? [{ type: "text", text: step.text }] : []))
     .filter((part: any) => part && (part.type === "text" || typeof part.text === "string"))
     .map((part: any) => typeof part.text === "string" ? part.text : "")
     .filter(Boolean);
-  const outputText = String(data?.output_text || textParts.join("") || "").trim();
+  const legacyParts = (Array.isArray(data?.outputs) ? data.outputs : [])
+    .flatMap((item: any) => Array.isArray(item?.content) ? item.content : (typeof item?.text === "string" ? [{ text: item.text }] : []))
+    .map((part: any) => typeof part?.text === "string" ? part.text : "")
+    .filter(Boolean);
+  const outputText = String(data?.output_text || stepParts.join("") || legacyParts.join("") || "").trim();
 
   if (!outputText) {
     const stepTypes = Array.isArray(data?.steps) ? data.steps.map((step: any) => String(step?.type || "unknown")).slice(0, 8) : [];
