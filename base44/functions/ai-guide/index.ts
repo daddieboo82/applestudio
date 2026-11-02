@@ -139,8 +139,9 @@ async function callGeminiWithFallback(apiKey: string, input: string, health = fa
       return { reply, model };
     } catch (error) {
       lastError = error;
-      const status = Number((error as any)?.status || 0);
-      const code = String((error as any)?.code || "");
+      const timedOut = error instanceof DOMException && error.name === "TimeoutError";
+      const status = Number((error as any)?.status || (timedOut ? 504 : 0));
+      const code = String((error as any)?.code || (timedOut ? "GEMINI_REQUEST_TIMEOUT" : ""));
       const retryable = status === 429 || status === 502 || status === 503 || status === 504 || code === "GEMINI_EMPTY_OUTPUT";
       if (!retryable) throw error;
       console.warn("Gemini model unavailable or returned no usable output; trying fallback", { model, status, code });
@@ -227,7 +228,8 @@ Deno.serve(async (req) => {
     }
     return Response.json({
       success: false,
-      error: "The AI guide could not complete this request."
+      error: "The AI guide could not complete this request.",
+      diagnostic
     }, { status: diagnostic.status === 429 ? 429 : 502 });
   }
 });
