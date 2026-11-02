@@ -118,10 +118,52 @@ function makeFallbackReply(latest, history = []) {
       choices: ["It finished", "It stopped moving", "The screen changed"],
     };
   }
+  if (/it stopped moving/.test(latestText)) {
+    return {
+      message: "Keep the Mac connected to power. Has the progress bar stayed in exactly the same place for at least 30 minutes?",
+      choices: ["Yes, 30 minutes or more", "No, less than 30 minutes"],
+    };
+  }
+  if (/yes, 30 minutes or more/.test(latestText)) {
+    return {
+      message: "Thanks. The Mac may be stuck. The next safe check is to see whether it responds before we consider any restart. Is the Mac still making sounds or showing any change on the screen?",
+      choices: ["Yes, something is changing", "No, nothing is changing"],
+    };
+  }
+  if (/no, less than 30 minutes/.test(latestText)) {
+    return {
+      message: "Keep it connected to power a little longer and give the progress bar time to move. Has anything changed since you last checked?",
+      choices: ["Yes, it moved", "No, it looks the same"],
+    };
+  }
+  if (/it finished/.test(latestText)) {
+    return {
+      message: "Great. What do you see now?",
+      choices: ["The sign-in screen", "The desktop", "A different message"],
+    };
+  }
+  if (/the screen changed/.test(latestText)) {
+    return {
+      message: "What do you see on the screen now?",
+      choices: ["The sign-in screen", "The desktop", "A different message"],
+    };
+  }
+  if (/no, nothing is changing|no, it looks the same/.test(latestText)) {
+    return {
+      message: "Thank you. Before we try anything that could affect your files, I need to know whether your important files are backed up. Do you have a recent backup?",
+      choices: ["Yes, I have a backup", "No, I need my files", "I'm not sure"],
+    };
+  }
+  if (/yes, something is changing|yes, it moved/.test(latestText)) {
+    return {
+      message: "Good. Leave the Mac connected to power and allow it to continue. Tell me if the progress bar stops again.",
+      choices: ["It is still moving", "It stopped moving"],
+    };
+  }
   if (/no, it has not moved|only see the apple logo/.test(latestText)) {
     return {
       message: "Leave the Mac connected to power for now. Has it stayed on the same screen for at least 30 minutes?",
-      choices: ["Yes", "No"],
+      choices: ["Yes, 30 minutes or more", "No, less than 30 minutes"],
     };
   }
   if (/account lock|apple account|find my|previous owner/.test(text)) {
@@ -222,15 +264,7 @@ export default function Guide() {
       });
       const fallback = makeFallbackReply(text, messages);
       setMessages([...nextMessages, { role: 'assistant', text: fallback.message, choices: fallback.choices }]);
-      const status = err?.status || err?.response?.status;
-      const reason = status === 401 || status === 403
-        ? 'The AI service rejected this app request. Basic recovery guidance is available below.'
-        : status === 429
-          ? 'The AI service is temporarily rate-limited. Basic recovery guidance is available below.'
-          : status >= 500
-            ? 'The AI service returned a server error. Basic recovery guidance is available below.'
-            : 'The AI service could not complete this request. Basic recovery guidance is available below.';
-      setError(reason + ' Your conversation remains visible on this page.');
+      setError('AI is temporarily unavailable. The built-in guide is continuing with safe, step-by-step help.');
     } finally {
       setLoading(false);
     }
@@ -313,7 +347,7 @@ export default function Guide() {
                 </div>
               </div>
             ))}
-            {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">{error}</p>}
+            {error && <p role="status" className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">{error}</p>}
           </div>
 
           <form onSubmit={(event) => { event.preventDefault(); askGuide(input); }} className="border-t border-border bg-background/70 p-4 sm:p-5">
