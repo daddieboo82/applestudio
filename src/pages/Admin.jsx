@@ -16,6 +16,41 @@ export default function Admin() {
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [aiCheck, setAiCheck] = useState({ status: 'not-tested', message: 'Run a test to check the Recovery Guide AI connection.', checkedAt: null, latency: null });
+  const [aiChecking, setAiChecking] = useState(false);
+
+  const runAiHealthCheck = async () => {
+    if (aiChecking) return;
+    setAiChecking(true);
+    const startedAt = Date.now();
+    try {
+      const response = await base44.integrations.Core.InvokeLLM({
+        model: 'gemini_3_8_flash',
+        prompt: 'This is a short service health check for the Universal Apple Device Recovery Suite. Reply with exactly this word and nothing else: READY',
+      });
+      const latency = Date.now() - startedAt;
+      const reply = typeof response === 'string' ? response.trim() : String(response?.message || response?.answer || '').trim();
+      if (!reply) throw new Error('The AI service returned an empty response.');
+      setAiCheck({
+        status: 'online',
+        message: 'The AI service responded successfully. The customer Recovery Guide can reach the configured model.',
+        checkedAt: new Date().toISOString(),
+        latency,
+      });
+    } catch (error) {
+      const statusCode = error?.status || error?.response?.status || null;
+      const message = statusCode === 401 || statusCode === 403
+        ? 'The AI integration rejected the request. Check the app AI integration permissions and configuration.'
+        : statusCode === 429
+          ? 'The AI service is rate-limiting requests. Wait and test again.'
+          : statusCode >= 500
+            ? 'The AI provider or integration returned a server error. Try again later.'
+            : 'The AI health check failed. Review the browser and Base44 function diagnostics for the underlying error.';
+      setAiCheck({ status: 'offline', message, checkedAt: new Date().toISOString(), latency: Date.now() - startedAt });
+    } finally {
+      setAiChecking(false);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -131,6 +166,30 @@ export default function Admin() {
           </div>
         </div>
       </div>
+
+      <section className="mt-8 rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="ai-health-heading">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-2xl">
+            <div className="flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${aiCheck.status === 'online' ? 'bg-emerald-500' : aiCheck.status === 'offline' ? 'bg-red-500' : 'bg-muted-foreground'}`} />
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Service monitoring</p>
+            </div>
+            <h2 id="ai-health-heading" className="mt-2 font-heading text-xl font-medium">Recovery Guide AI</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{aiCheck.message}</p>
+            {aiCheck.checkedAt && (
+              <p className="mt-2 font-mono text-[10px] text-muted-foreground">
+                Last checked {new Date(aiCheck.checkedAt).toLocaleString()} · {aiCheck.latency} ms
+              </p>
+            )}
+          </div>
+          <button type="button" onClick={runAiHealthCheck} disabled={aiChecking} className="inline-flex items-center justify-center rounded-full border border-primary/40 bg-primary/10 px-5 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-primary transition-colors hover:bg-primary/15 disabled:cursor-wait disabled:opacity-50">
+            {aiChecking ? 'Testing connection…' : 'Test AI connection'}
+          </button>
+        </div>
+        <p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
+          This on-demand check sends a short test prompt to the same Base44 AI model used by the customer guide. It does not include customer conversations or device information. A successful test confirms model connectivity at that moment, not uninterrupted future availability.
+        </p>
+      </section>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-12">
         <div className="lg:col-span-8">
