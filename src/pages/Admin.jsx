@@ -30,10 +30,12 @@ export default function Admin() {
       });
       const latency = Date.now() - startedAt;
       const reply = typeof response === 'string' ? response.trim() : String(response?.message || response?.answer || '').trim();
-      if (!reply) throw new Error('The AI service returned an empty response.');
+      if (reply.toUpperCase() !== 'READY') {
+        throw new Error('The AI service returned an unexpected health-check response.');
+      }
       setAiCheck({
         status: 'online',
-        message: 'The AI service responded successfully. The customer Recovery Guide can reach the configured model.',
+        message: 'The configured AI model returned the expected READY response. The customer Recovery Guide can reach the model.',
         checkedAt: new Date().toISOString(),
         latency,
       });
