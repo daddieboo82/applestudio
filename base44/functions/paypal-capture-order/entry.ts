@@ -23,6 +23,12 @@ Deno.serve(async (req: Request) => {
     let response = await fetch(url, { headers: { Authorization: "Bearer " + access } });
     if (!response.ok) return out({ error: "Could not verify the PayPal order." }, 502);
     let order = await response.json();
+    const unit = order.purchase_units?.[0];
+    if (!unit || unit.custom_id !== payment.service_request_id ||
+        unit.amount?.currency_code !== payment.currency ||
+        Number(unit.amount?.value).toFixed(2) !== Number(payment.amount).toFixed(2)) {
+      return out({ error: "PayPal order details do not match the saved service request and estimate." }, 409);
+    }
     if (order.status !== "COMPLETED") {
       response = await fetch(url + "/capture", { method: "POST", headers: { Authorization: "Bearer " + access, "Content-Type": "application/json", "PayPal-Request-Id": "capture-" + orderId }, body: "{}" });
       const result = await response.json();

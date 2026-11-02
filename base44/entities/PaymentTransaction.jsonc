@@ -16,7 +16,7 @@
   "required": ["service_request_id", "customer_id", "paypal_order_id", "amount", "currency", "status"],
   "rls": {
     "create": { "user_condition": { "role": "admin" } },
-    "read": { "$or": [{ "customer_id": "{{user.id}}" }, { "user_condition": { "role": "admin" } }] },
+    "read": { "$or": [{ "data.customer_id": "{{user.id}}" }, { "user_condition": { "role": "admin" } }] },
     "update": { "user_condition": { "role": "admin" } },
     "delete": { "user_condition": { "role": "admin" } }
   }
