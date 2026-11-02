@@ -41,13 +41,23 @@ export default function Admin() {
       });
     } catch (error) {
       const statusCode = error?.status || error?.response?.status || null;
-      const message = statusCode === 401 || statusCode === 403
-        ? 'The AI integration rejected the request. Check the app AI integration permissions and configuration.'
+      const errorCode = error?.code || error?.data?.error?.code || error?.response?.data?.error?.code || null;
+      const detail = String(
+        error?.data?.error?.message ||
+        error?.data?.message ||
+        error?.response?.data?.error?.message ||
+        error?.response?.data?.message ||
+        error?.message ||
+        'No additional error details were returned.'
+      ).replace(/[\r\n]+/g, ' ').slice(0, 220);
+      const category = statusCode === 401 || statusCode === 403
+        ? 'The AI integration rejected the request.'
         : statusCode === 429
-          ? 'The AI service is rate-limiting requests. Wait and test again.'
+          ? 'The AI service is rate-limiting requests.'
           : statusCode >= 500
-            ? 'The AI provider or integration returned a server error. Try again later.'
-            : 'The AI health check failed. Review the browser and Base44 function diagnostics for the underlying error.';
+            ? 'The AI provider or integration returned a server error.'
+            : 'The AI health check failed.';
+      const message = [category, statusCode ? `HTTP ${statusCode}` : null, errorCode, detail].filter(Boolean).join(' · ');
       setAiCheck({ status: 'offline', message, checkedAt: new Date().toISOString(), latency: Date.now() - startedAt });
     } finally {
       setAiChecking(false);
