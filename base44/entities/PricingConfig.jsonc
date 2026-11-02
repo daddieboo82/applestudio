@@ -1,0 +1,39 @@
+{
+  "name": "PricingConfig",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "Config slot, always 'global'"
+    },
+    "margin_floor": {
+      "type": "number",
+      "description": "Price must stay at or above cost multiplied by this value"
+    },
+    "undercut_pct": {
+      "type": "number",
+      "description": "How far below the market benchmark the list price sits"
+    }
+  },
+  "required": [
+    "key"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

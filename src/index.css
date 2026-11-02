@@ -1,0 +1,142 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 13% 4%;
+    --foreground: 0 0% 100%;
+    --card: 218 12% 9%;
+    --card-foreground: 0 0% 100%;
+    --popover: 218 12% 9%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 183 100% 50%;
+    --primary-foreground: 220 13% 4%;
+    --secondary: 218 10% 13%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 218 10% 13%;
+    --muted-foreground: 218 14% 62%;
+    --accent: 271 100% 70%;
+    --accent-foreground: 220 13% 4%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 218 12% 17%;
+    --input: 218 12% 17%;
+    --ring: 183 100% 50%;
+    --radius: 0.5rem;
+    --font-heading: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --chart-1: 183 100% 50%;
+    --chart-2: 271 100% 70%;
+    --chart-3: 218 14% 62%;
+    --chart-4: 160 70% 45%;
+    --chart-5: 30 90% 60%;
+    --sidebar-background: 218 12% 9%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 183 100% 50%;
+    --sidebar-primary-foreground: 220 13% 4%;
+    --sidebar-accent: 218 10% 13%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 218 12% 17%;
+    --sidebar-ring: 183 100% 50%;
+  }
+
+  .dark {
+    --background: 220 13% 4%;
+    --foreground: 0 0% 100%;
+    --card: 218 12% 9%;
+    --card-foreground: 0 0% 100%;
+    --popover: 218 12% 9%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 183 100% 50%;
+    --primary-foreground: 220 13% 4%;
+    --secondary: 218 10% 13%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 218 10% 13%;
+    --muted-foreground: 218 14% 62%;
+    --accent: 271 100% 70%;
+    --accent-foreground: 220 13% 4%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 218 12% 17%;
+    --input: 218 12% 17%;
+    --ring: 183 100% 50%;
+    --chart-1: 183 100% 50%;
+    --chart-2: 271 100% 70%;
+    --chart-3: 218 14% 62%;
+    --chart-4: 160 70% 45%;
+    --chart-5: 30 90% 60%;
+    --sidebar-background: 218 12% 9%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 183 100% 50%;
+    --sidebar-primary-foreground: 220 13% 4%;
+    --sidebar-accent: 218 10% 13%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 218 12% 17%;
+    --sidebar-ring: 183 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  ::selection {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+
+  select option {
+    background: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pulseLine {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scaleX(0.55);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@layer utilities {
+  .lattice {
+    background-image:
+      linear-gradient(to right, hsl(var(--foreground) / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--foreground) / 0.05) 1px, transparent 1px);
+    background-size: 72px 72px;
+  }
+
+  .animate-rise {
+    animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .animate-pulse-line {
+    animation: pulseLine 3.4s ease-in-out infinite;
+  }
+}

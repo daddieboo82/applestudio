@@ -1,0 +1,9 @@
+{
+  "name": "Universal Apple Device Recovery Suite",
+  "site": {
+    "installCommand": "npm install",
+    "buildCommand": "npm run build",
+    "serveCommand": "npm run dev",
+    "outputDirectory": "./dist"
+  }
+}

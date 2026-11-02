@@ -1,0 +1,25 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "description": "Application access role. Customer registrations default to user. Only an existing administrator may change this field.",
+      "enum": [
+        "admin",
+        "user"
+      ],
+      "default": "user",
+      "rls": {
+        "write": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "role"
+  ]
+}
