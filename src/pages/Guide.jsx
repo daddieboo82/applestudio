@@ -133,6 +133,8 @@ export default function Guide() {
     setLoading(true);
     try {
       const result = await base44.integrations.Core.InvokeLLM({
+        // Pin a supported model so this guide does not depend on an unset app-level default.
+        model: 'gemini_3_8_flash',
         prompt: makePrompt(messages, text),
         response_json_schema: {
           type: 'object',
@@ -146,9 +148,23 @@ export default function Guide() {
       const answer = normalizeAnswer(result);
       setMessages([...nextMessages, { role: 'assistant', text: answer.message, choices: answer.choices }]);
     } catch (err) {
+      // Log only diagnostic metadata; never log the customer's message or full prompt.
+      console.error('Recovery Guide AI request failed', {
+        status: err?.status || err?.response?.status || null,
+        code: err?.code || err?.response?.data?.code || null,
+        message: String(err?.message || 'Unknown AI integration error').slice(0, 240),
+      });
       const fallback = makeFallbackReply(text);
       setMessages([...nextMessages, { role: 'assistant', text: fallback.message, choices: fallback.choices }]);
-      setError('The AI service did not respond. Basic recovery guidance is available below, and your conversation is still here.');
+      const status = err?.status || err?.response?.status;
+      const reason = status === 401 || status === 403
+        ? 'The AI service rejected this app request. Basic recovery guidance is available below.'
+        : status === 429
+          ? 'The AI service is temporarily rate-limited. Basic recovery guidance is available below.'
+          : status >= 500
+            ? 'The AI service returned a server error. Basic recovery guidance is available below.'
+            : 'The AI service could not complete this request. Basic recovery guidance is available below.';
+      setError(reason + ' Your conversation remains visible on this page.');
     } finally {
       setLoading(false);
     }
