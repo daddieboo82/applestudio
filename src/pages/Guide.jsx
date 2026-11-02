@@ -62,6 +62,50 @@ function normalizeAnswer(result) {
   return { message: 'I can help with the next step. Tell me what you see on your screen.', choices: [] };
 }
 
+function makeFallbackReply(latest) {
+  const text = latest.toLowerCase();
+  if (/activation lock|find my|locked to owner|previous owner/.test(text)) {
+    return {
+      message: "I can help you follow the legitimate recovery route. Activation Lock cannot be removed by this guide. If this is your device, use Apple's official account recovery or ask the previous owner to remove it from their account. If it belongs to an organization, contact its administrator. Never share your Apple Account password or verification code here.",
+      choices: ["It is my device", "I bought it used", "It belongs to my organization"],
+    };
+  }
+  if (/erase|restore|factory reset|reset.*mac|reset.*iphone/.test(text)) {
+    return {
+      message: "Before any restore or erase, please check whether your important photos, files, and other data are backed up. A restore can permanently erase information. I will not start an erase from this website. First, tell me whether you have a recent backup.",
+      choices: ["Yes, I have a backup", "No, I need to save my data", "I'm not sure"],
+    };
+  }
+  if (/usb|connect|plug|computer.*see|not detect|not recognized/.test(text)) {
+    return {
+      message: "Let's check the connection safely. Connect the device directly to the computer with a cable that supports data, not just charging. If possible, try another USB port and avoid a hub. This website cannot inspect the USB connection itself. What do you see on the device screen?",
+      choices: ["Apple logo", "A cable or computer picture", "A normal home or lock screen", "The screen is black"],
+    };
+  }
+  if (/iphone|ipad/.test(text)) {
+    return {
+      message: "I can help with an iPhone or iPad using official recovery steps. First, keep it connected to a charger if the battery may be low. Do not erase or restore it yet if you need data that is not backed up. What is happening on its screen?",
+      choices: ["It will not turn on", "Apple logo stays on screen", "It shows a cable/computer picture", "It starts but has another problem"],
+    };
+  }
+  if (/mac|macbook|imac|mac mini|mac studio|mac pro/.test(text)) {
+    return {
+      message: "I can guide you through safe Mac troubleshooting. Before any reinstall or restore, we should protect files that are not backed up. What do you see when you turn the Mac on?",
+      choices: ["Apple logo or progress bar", "A question-mark folder", "A login screen", "A recovery or utility screen", "Nothing appears"],
+    };
+  }
+  if (/backup|data|photo|file|recover/.test(text)) {
+    return {
+      message: "Let's protect your data first. Avoid erasing, restoring, or repeatedly trying repair steps until we understand the situation. Do you have a recent backup of the information you need?",
+      choices: ["Yes", "No", "I'm not sure"],
+    };
+  }
+  return {
+    message: "I can still help with basic safe guidance while the AI service reconnects. Please describe what you can see on the device or computer in everyday words. Do not share passwords, verification codes, recovery keys, or payment details.",
+    choices: ["Help me connect my device", "My device will not start", "I want to prepare for a restore", "I need help with an account lock"],
+  };
+}
+
 export default function Guide() {
   const [messages, setMessages] = useState([
     {
@@ -102,8 +146,9 @@ export default function Guide() {
       const answer = normalizeAnswer(result);
       setMessages([...nextMessages, { role: 'assistant', text: answer.message, choices: answer.choices }]);
     } catch (err) {
-      setMessages(nextMessages);
-      setError('The AI guide is temporarily unavailable. Your progress has not been lost. Please try again.');
+      const fallback = makeFallbackReply(text);
+      setMessages([...nextMessages, { role: 'assistant', text: fallback.message, choices: fallback.choices }]);
+      setError('The AI service did not respond. Basic recovery guidance is available below, and your conversation is still here.');
     } finally {
       setLoading(false);
     }
