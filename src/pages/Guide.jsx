@@ -209,10 +209,11 @@ export default function Guide() {
     setMessages([...nextMessages, { role: 'assistant', text: '', loading: true }]);
     setLoading(true);
     try {
-      const result = await base44.functions.invoke('ai-guide', {
+      const rawResult = await base44.functions.invoke('ai-guide', {
         action: 'chat',
         messages: makeHistory(messages, text),
       });
+      const result = rawResult?.data ?? rawResult?.result ?? rawResult;
       if (!result?.success || !result.answer) {
         throw new Error(result?.error || 'The AI guide could not complete this request.');
       }

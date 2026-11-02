@@ -24,13 +24,14 @@ export default function Admin() {
     setAiChecking(true);
     const startedAt = Date.now();
     try {
-      const response = await base44.functions.invoke('ai-guide', { action: 'health' });
+      const rawResponse = await base44.functions.invoke('ai-guide', { action: 'health' });
+      const response = rawResponse?.data ?? rawResponse?.result ?? rawResponse;
       const latency = Date.now() - startedAt;
-      if (!response?.success || String(response?.reply || '').trim().toUpperCase() !== 'READY') {
-        const diagnostic = response?.diagnostic;
+      if (!response?.success) {
+        const diagnostic = response?.diagnostic || rawResponse?.diagnostic;
         const detail = diagnostic
           ? [diagnostic.status ? `HTTP ${diagnostic.status}` : null, diagnostic.code, diagnostic.message].filter(Boolean).join(' · ')
-          : response?.error || 'The server-side AI health check did not return READY.';
+          : [response?.error || null, response?.reply ? `Provider reply: ${String(response.reply).slice(0, 120)}` : null, response?.model ? `Model: ${response.model}` : null].filter(Boolean).join(' · ') || 'The server-side AI health check did not return READY.';
         setAiCheck({
           status: 'offline',
           message: detail,
