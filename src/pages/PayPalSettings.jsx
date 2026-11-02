@@ -132,12 +132,9 @@ export default function PayPalSettings() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-base font-semibold">PayPal environment</h2>
-            <p className="mt-1 text-xs text-muted-foreground">Choose the PayPal account environment matching the credentials stored in Base44.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Sandbox is the configured environment while payment processing is being tested.</p>
           </div>
-          <div className="inline-flex rounded-full border border-border bg-background p-1">
-            <button type="button" onClick={() => { setEnvironment('sandbox'); setTestResult(null); }} className={`rounded-full px-4 py-2 text-xs font-medium transition-colors ${environment === 'sandbox' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Sandbox</button>
-            <button type="button" onClick={() => { setEnvironment('live'); setTestResult(null); }} className={`rounded-full px-4 py-2 text-xs font-medium transition-colors ${environment === 'live' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Live</button>
-          </div>
+          <span className="rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-xs font-medium text-primary">Sandbox only</span>
         </div>
         <div className="mt-4 rounded-xl border border-border bg-background/70 p-4">
           <p className="text-sm font-medium">{environment === 'sandbox' ? 'Test payments only' : 'Real customer payments'}</p>
@@ -166,6 +163,13 @@ export default function PayPalSettings() {
         </div>
         {checking && <p className="mt-3 text-xs text-muted-foreground">Checking secure backend configuration…</p>}
         {pageError && <p role="alert" className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700">{pageError}</p>}
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-border bg-card/50 p-5 sm:p-6">
+        <h2 className="text-base font-semibold">PayPal webhook endpoint</h2>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Register this HTTPS endpoint in your PayPal Sandbox REST app. The function verifies PayPal's signature before recording events. It must be deployed before PayPal can deliver successfully.</p>
+        <code className="mt-3 block break-all rounded-lg border border-border bg-background px-3 py-3 text-xs text-foreground">https://universal-apple-device-recovery-sui-7f97bfa5.base44.app/api/functions/paypal-webhook</code>
+        <p className="mt-3 text-xs text-muted-foreground">Subscribe to PAYMENT.CAPTURE.COMPLETED, PAYMENT.CAPTURE.REFUNDED, and PAYMENT.CAPTURE.REVERSED.</p>
       </section>
 
       <section className="mt-6 rounded-2xl border border-border bg-card/50 p-5 sm:p-6">
@@ -209,9 +213,9 @@ export default function PayPalSettings() {
         <div className="flex items-start gap-3">
           <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
           <div>
-            <h2 className="text-sm font-semibold">Checkout remains disabled</h2>
+            <h2 className="text-sm font-semibold">Sandbox checkout is not live yet</h2>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              PayPal authentication is separate from payment processing. The order creation, capture, verified webhook, payment records, refunds, and customer payment history still need to be implemented and tested before customer payments can be enabled.
+              The Sandbox order, capture, payment-record, and signature-verified webhook code is now in the source repository. It has not been deployed to Base44 or tested against your PayPal Sandbox account yet. Do not accept customer payments until deployment, secret configuration, webhook registration, and an end-to-end Sandbox test are complete. Live payments are not enabled.
             </p>
           </div>
         </div>

@@ -28,7 +28,7 @@ Deno.serve(async (req: Request) => {
     const response = await fetch(API + "/v2/checkout/orders", {
       method: "POST",
       headers: { Authorization: "Bearer " + access, "Content-Type": "application/json", "PayPal-Request-Id": "service-" + request.id + "-" + crypto.randomUUID() },
-      body: JSON.stringify({ intent: "CAPTURE", purchase_units: [{ reference_id: request.id, custom_id: request.id, invoice_id: request.reference, description: "Apple device recovery service - " + (request.service_label || request.service), amount: { currency_code: "USD", value: amount.toFixed(2) } }], payment_source: { paypal: { experience_context: { user_action: "PAY_NOW", shipping_preference: "NO_SHIPPING" } } } }),
+      body: JSON.stringify({ intent: "CAPTURE", purchase_units: [{ reference_id: request.id, custom_id: request.id, invoice_id: request.reference, description: "Apple device recovery service - " + (request.service_label || request.service), amount: { currency_code: "USD", value: amount.toFixed(2) } }], payment_source: { paypal: { experience_context: { user_action: "PAY_NOW", shipping_preference: "NO_SHIPPING", return_url: "https://appledevicerecovery.com/payment/return", cancel_url: "https://appledevicerecovery.com/payment/cancel?requestId=" + encodeURIComponent(request.id) } } } }),
     });
     const order = await response.json();
     if (!response.ok || !order.id) return out({ error: "PayPal could not create the checkout order." }, 502);

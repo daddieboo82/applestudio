@@ -31,6 +31,8 @@ export default function Quote() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [reference, setReference] = useState(null);
+  const [serviceRequestId, setServiceRequestId] = useState(null);
+  const [startingPayment, setStartingPayment] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -55,7 +57,7 @@ export default function Quote() {
     setSubmitting(true);
     try {
       const ref = makeReference();
-      await base44.entities.ServiceRequest.create({
+      const savedRequest = await base44.entities.ServiceRequest.create({
         reference: ref,
         customer_name: account.full_name || '',
         email: account.email,
@@ -72,11 +74,31 @@ export default function Quote() {
         ownership_confirmed: true,
         status: 'received',
       });
+      setServiceRequestId(savedRequest.id);
       setReference(ref);
     } catch {
       setError('We could not save that request. Please try again in a moment.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handlePayment = async () => {
+    if (!serviceRequestId) return;
+    setError('');
+    setStartingPayment(true);
+    try {
+      const result = await base44.functions.invoke('paypal-create-order', {
+        serviceRequestId,
+      });
+      const data = result?.data || result;
+      if (!data?.success || !data?.approvalUrl) {
+        throw new Error(data?.error || 'PayPal checkout could not be started.');
+      }
+      window.location.assign(data.approvalUrl);
+    } catch (paymentError) {
+      setError(paymentError?.message || 'Unable to start PayPal checkout. Please try again.');
+      setStartingPayment(false);
     }
   };
 
@@ -112,7 +134,16 @@ export default function Quote() {
             This is a saved service request and estimate, not a payment receipt or confirmation that
             a repair has been performed.
           </p>
+          {error && <p role="alert" className="mt-4 text-xs text-destructive">{error}</p>}
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={handlePayment}
+              disabled={startingPayment || !serviceRequestId}
+              className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-3 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {startingPayment ? 'Connecting to PayPal…' : 'Continue to PayPal Sandbox'}
+            </button>
             <Link
               to="/guide"
               className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-foreground transition-opacity hover:opacity-90"

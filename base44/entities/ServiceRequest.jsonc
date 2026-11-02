@@ -46,6 +46,14 @@
     "ownership_confirmed": {
       "type": "boolean"
     },
+    "payment_status": {
+      "type": "string",
+      "enum": ["unpaid", "pending", "paid", "refunded"],
+      "default": "unpaid"
+    },
+    "paypal_order_id": {
+      "type": "string"
+    },
     "status": {
       "type": "string",
       "enum": [
