@@ -62,46 +62,112 @@ function normalizeAnswer(result) {
   return { message: 'I can help with the next step. Tell me what you see on your screen.', choices: [] };
 }
 
-function makeFallbackReply(latest) {
-  const text = latest.toLowerCase();
-  if (/activation lock|find my|locked to owner|previous owner/.test(text)) {
+function makeFallbackReply(latest, history = []) {
+  const context = [...history, { role: 'user', text: latest }]
+    .filter((item) => item?.text)
+    .map((item) => item.text.toLowerCase())
+    .join(' ');
+  const text = context;
+  const latestText = latest.toLowerCase();
+
+  if (/it says activation lock|activation lock|locked to owner/.test(latestText)) {
     return {
-      message: "I can help you follow the legitimate recovery route. Activation Lock cannot be removed by this guide. If this is your device, use Apple's official account recovery or ask the previous owner to remove it from their account. If it belongs to an organization, contact its administrator. Never share your Apple Account password or verification code here.",
-      choices: ["It is my device", "I bought it used", "It belongs to my organization"],
+      message: "Activation Lock protects the owner's device. I cannot bypass it. If this is your Mac, start at Apple's official account recovery page: https://iforgot.apple.com. If you bought it used, ask the previous owner to remove it from their Find My account. Is this your own Mac or a used purchase?",
+      choices: ["It is my Mac", "I bought it used", "It belongs to work or school"],
+    };
+  }
+  if (/it asks for an apple account|apple account password/.test(latestText)) {
+    return {
+      message: "Do not share your password or verification code here. If the account is yours, use Apple's official recovery page: https://iforgot.apple.com. Is the account yours?",
+      choices: ["Yes, it is my account", "No, it belongs to someone else", "I'm not sure"],
+    };
+  }
+  if (/mac login password|my mac login password/.test(latestText)) {
+    return {
+      message: "That is the password used to sign in to the Mac, not Activation Lock. Do not erase the Mac yet if you need files that are not backed up. Do you see a password hint or a reset option on the sign-in screen?",
+      choices: ["I see a password hint", "I see a reset option", "Neither"],
+    };
+  }
+  if (/managed by work|managed by school|organization/.test(latestText)) {
+    return {
+      message: "A work or school administrator controls that Mac. Contact the organization's IT team and ask them to release or help recover the device. Is this a device issued by your workplace or school?",
+      choices: ["Work", "School", "Neither"],
+    };
+  }
+  if (/i bought it used|used purchase/.test(latestText)) {
+    return {
+      message: "Ask the seller or previous owner to remove the Mac from their Apple Account in Find My. They can do this without giving you their password. Do not pay for an unofficial unlock service. Have you been able to contact the seller?",
+      choices: ["Yes, I can contact them", "No, I cannot reach them"],
+    };
+  }
+  if (/it is my mac|it is my device|yes, it is my account/.test(latestText)) {
+    return {
+      message: "Use Apple's official account recovery page at https://iforgot.apple.com. Follow the steps there, and do not share any password or verification code here. Are you able to open that page?",
+      choices: ["Yes", "No"],
+    };
+  }
+  if (/no, it belongs to someone else|i cannot reach them/.test(latestText)) {
+    return {
+      message: "The previous owner or the organization that manages the Mac must release it. If you bought it from a seller who cannot help, contact the seller or retailer about a return. I cannot bypass Activation Lock.",
+      choices: ["I can contact the seller", "I need another option"],
+    };
+  }
+  if (/yes, it is moving/.test(latestText)) {
+    return {
+      message: "Good. Keep the Mac connected to power and let the progress bar finish. Do not force it to shut down while it is moving. Tell me if the screen changes or the bar stops.",
+      choices: ["It finished", "It stopped moving", "The screen changed"],
+    };
+  }
+  if (/no, it has not moved|only see the apple logo/.test(latestText)) {
+    return {
+      message: "Leave the Mac connected to power for now. Has it stayed on the same screen for at least 30 minutes?",
+      choices: ["Yes", "No"],
+    };
+  }
+  if (/account lock|apple account|find my|previous owner/.test(text)) {
+    return {
+      message: "I can help identify the right official recovery route. What does the Mac ask you for?",
+      choices: ["It says Activation Lock", "It asks for an Apple Account", "It asks for my Mac login password", "It says the Mac is managed by work or school"],
+    };
+  }
+  if (/apple logo|progress bar/.test(latestText) && /mac|macbook|imac|mac mini|mac studio|mac pro/.test(text)) {
+    return {
+      message: "Keep the Mac connected to power. If the progress bar is moving, leave it alone and let it finish. Is the progress bar moving?",
+      choices: ["Yes, it is moving", "No, it has not moved for a while", "I only see the Apple logo"],
     };
   }
   if (/erase|restore|factory reset|reset.*mac|reset.*iphone/.test(text)) {
     return {
-      message: "Before any restore or erase, please check whether your important photos, files, and other data are backed up. A restore can permanently erase information. I will not start an erase from this website. First, tell me whether you have a recent backup.",
+      message: "Before any restore or erase, please check whether your important photos, files, and other data are backed up. A restore can permanently erase information. I will not start an erase from this website. Do you have a recent backup?",
       choices: ["Yes, I have a backup", "No, I need to save my data", "I'm not sure"],
     };
   }
   if (/usb|connect|plug|computer.*see|not detect|not recognized/.test(text)) {
     return {
-      message: "Let's check the connection safely. Connect the device directly to the computer with a cable that supports data, not just charging. If possible, try another USB port and avoid a hub. This website cannot inspect the USB connection itself. What do you see on the device screen?",
+      message: "Let's check the connection safely. Connect the device directly to the computer with a cable that supports data. What do you see on the device screen?",
       choices: ["Apple logo", "A cable or computer picture", "A normal home or lock screen", "The screen is black"],
     };
   }
   if (/iphone|ipad/.test(text)) {
     return {
-      message: "I can help with an iPhone or iPad using official recovery steps. First, keep it connected to a charger if the battery may be low. Do not erase or restore it yet if you need data that is not backed up. What is happening on its screen?",
+      message: "Keep the iPhone or iPad connected to a charger if its battery may be low. Do not erase or restore it yet if you need data that is not backed up. What is happening on its screen?",
       choices: ["It will not turn on", "Apple logo stays on screen", "It shows a cable/computer picture", "It starts but has another problem"],
     };
   }
   if (/mac|macbook|imac|mac mini|mac studio|mac pro/.test(text)) {
     return {
-      message: "I can guide you through safe Mac troubleshooting. Before any reinstall or restore, we should protect files that are not backed up. What do you see when you turn the Mac on?",
+      message: "Keep the Mac connected to power. What do you see when you turn it on?",
       choices: ["Apple logo or progress bar", "A question-mark folder", "A login screen", "A recovery or utility screen", "Nothing appears"],
     };
   }
   if (/backup|data|photo|file|recover/.test(text)) {
     return {
-      message: "Let's protect your data first. Avoid erasing, restoring, or repeatedly trying repair steps until we understand the situation. Do you have a recent backup of the information you need?",
+      message: "Let's protect your data first. Avoid erasing or restoring anything for now. Do you have a recent backup of the information you need?",
       choices: ["Yes", "No", "I'm not sure"],
     };
   }
   return {
-    message: "I can still help with basic safe guidance while the AI service reconnects. Please describe what you can see on the device or computer in everyday words. Do not share passwords, verification codes, recovery keys, or payment details.",
+    message: "The built-in guide is helping while the AI service is unavailable. Tell me what you can see, and I will give you one simple next step.",
     choices: ["Help me connect my device", "My device will not start", "I want to prepare for a restore", "I need help with an account lock"],
   };
 }
@@ -154,7 +220,7 @@ export default function Guide() {
         code: err?.code || err?.response?.data?.code || null,
         message: String(err?.message || 'Unknown AI integration error').slice(0, 240),
       });
-      const fallback = makeFallbackReply(text);
+      const fallback = makeFallbackReply(text, messages);
       setMessages([...nextMessages, { role: 'assistant', text: fallback.message, choices: fallback.choices }]);
       const status = err?.status || err?.response?.status;
       const reason = status === 401 || status === 403
