@@ -45,6 +45,15 @@ const AuthenticatedApp = () => {
 
   return (
     <Routes>
+      {/* Public pages remain available without creating an account. */}
+      <Route element={<SiteLayout />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/guide" element={<Guide />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/quote" element={<Quote />} />
+      </Route>
+
+      {/* Staff and payment controls require a signed-in user; pages enforce admin role. */}
       <Route
         element={
           <ProtectedRoute
@@ -53,10 +62,6 @@ const AuthenticatedApp = () => {
         }
       >
         <Route element={<SiteLayout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/guide" element={<Guide />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/quote" element={<Quote />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/payments" element={<PayPalSettings />} />
         </Route>
