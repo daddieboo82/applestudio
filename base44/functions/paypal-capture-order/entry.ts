@@ -11,7 +11,9 @@ async function getToken() {
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return out({ error: "Method not allowed." }, 405);
   try {
-    const b = createClientFromRequest(req), user = await b.auth.me();
+    const b = createClientFromRequest(req);
+    let user;
+    try { user = await b.auth.me(); } catch { return out({ error: "Sign in to continue." }, 401); }
     if (!user) return out({ error: "Sign in to continue." }, 401);
     const body = await req.json().catch(() => ({})), orderId = typeof body.orderId === "string" ? body.orderId : "";
     if (!orderId) return out({ error: "A PayPal order ID is required." }, 400);

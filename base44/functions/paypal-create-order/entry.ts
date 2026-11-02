@@ -13,7 +13,8 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return out({ error: "Method not allowed." }, 405);
   try {
     const b = createClientFromRequest(req);
-    const user = await b.auth.me();
+    let user;
+    try { user = await b.auth.me(); } catch { return out({ error: "Sign in to continue." }, 401); }
     if (!user) return out({ error: "Sign in to continue." }, 401);
     const body = await req.json().catch(() => ({}));
     const id = typeof body.serviceRequestId === "string" ? body.serviceRequestId : "";
